@@ -12,10 +12,13 @@ from basketball_analyzer.pipeline import BasketballAnalysisPipeline
 st.set_page_config(page_title='Basketball Match Analyzer', layout='wide')
 
 
-def _run_pipeline(source_mode: str, uploaded_file=None) -> tuple[object, str]:
+def _run_pipeline(source_mode: str, uploaded_file=None):
     pipeline = BasketballAnalysisPipeline()
+    render_dir = Path(tempfile.mkdtemp(prefix='basketball_render_'))
+    render_path = render_dir / 'analysis.gif'
+
     if source_mode == 'Demo Sequence':
-        return pipeline.run('demo'), 'demo'
+        return pipeline.run('demo', render_output_path=render_path), 'demo'
 
     if uploaded_file is None:
         raise ValueError('No file provided.')
@@ -24,11 +27,11 @@ def _run_pipeline(source_mode: str, uploaded_file=None) -> tuple[object, str]:
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(uploaded_file.getbuffer())
         temp_path = tmp.name
-    return pipeline.run(temp_path), temp_path
+    return pipeline.run(temp_path, render_output_path=render_path), temp_path
 
 
 st.title('Basketball Match Analyzer')
-st.caption('A basketball-focused multi-agent demo for possessions, passes, turnovers, steals, shots, rebounds, and automated game summaries.')
+st.caption('A basketball-focused multi-agent demo for possessions, passes, turnovers, steals, shots, rebounds, automated summaries, and rendered play overlays.')
 
 with st.sidebar:
     st.header('Input')
@@ -46,6 +49,26 @@ if run_clicked:
     try:
         result, source_ref = _run_pipeline(mode, upload)
         st.success(f'Analysis complete from: {source_ref}')
+
+        st.subheader('Rendered Analysis')
+        if result.rendered_media_path and Path(result.rendered_media_path).exists():
+            media_path = Path(result.rendered_media_path)
+            if media_path.suffix.lower() == '.mp4':
+                st.video(str(media_path))
+            else:
+                st.image(str(media_path), caption='Rendered tracking + events animation', use_container_width=True)
+            st.caption(f'Rendered artifact: {media_path}')
+            if result.rendered_media_note:
+                st.info(result.rendered_media_note)
+            st.download_button(
+                f'Download rendered {media_path.suffix.lower()}',
+                data=media_path.read_bytes(),
+                file_name=media_path.name,
+                mime='video/mp4' if media_path.suffix.lower() == '.mp4' else 'image/gif',
+                use_container_width=True,
+            )
+        else:
+            st.info('Rendered animation was not available for this run.')
 
         st.subheader('Automated Report')
         st.write(result.report_text)

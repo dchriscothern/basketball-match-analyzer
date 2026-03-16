@@ -33,11 +33,12 @@ def main() -> None:
     parser.add_argument('--output', default='outputs', help='Output directory')
     args = parser.parse_args()
 
-    pipeline = BasketballAnalysisPipeline()
-    result = pipeline.run(args.video)
-
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    pipeline = BasketballAnalysisPipeline()
+    result = pipeline.run(args.video, render_output_path=output_dir / 'analysis.gif')
+
     (output_dir / 'report.txt').write_text(result.report_text, encoding='utf-8')
     (output_dir / 'events.json').write_text(
         json.dumps([_event_to_dict(event) for event in result.events], indent=2),
@@ -51,6 +52,10 @@ def main() -> None:
     (output_dir / 'team_stats.json').write_text(json.dumps(result.team_stats, indent=2), encoding='utf-8')
 
     print(result.report_text)
+    if result.rendered_media_path:
+        print(f'Rendered analysis artifact: {result.rendered_media_path}')
+    if result.rendered_media_note:
+        print(result.rendered_media_note)
     print(f'Saved outputs to {output_dir.resolve()}')
 
 
