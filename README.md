@@ -49,7 +49,7 @@ streamlit run app.py --server.port 8513
    The best real-data path right now. If you already have external tracking output, upload a JSON file and let the downstream agents do eventing, stats, reporting, and rendering.
 
 3. `Raw MP4`
-   A crude first-pass OpenCV prototype is included for raw video. It is not production-quality tracking. It sparsely samples frames, guesses moving player blobs, tries to find an orange ball, and uses left/right court halves as a temporary team proxy. If that fails, the repo falls back to the demo sequence.
+   A crude first-pass OpenCV prototype is included for raw video. It is not production-quality tracking. It sparsely samples frames, guesses moving player blobs, tries to find an orange ball, and uses left/right court halves as a temporary team proxy. If tracking quality is weak, the app warns you instead of silently swapping in demo data.
 
 ## Current Renderer Scope
 

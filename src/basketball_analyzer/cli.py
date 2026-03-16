@@ -52,6 +52,8 @@ def main() -> None:
     (output_dir / 'team_stats.json').write_text(json.dumps(result.team_stats, indent=2), encoding='utf-8')
 
     print(result.report_text)
+    if result.tracking_note:
+        print(result.tracking_note)
     if result.rendered_media_path:
         print(f'Rendered analysis artifact: {result.rendered_media_path}')
     if result.rendered_media_note:

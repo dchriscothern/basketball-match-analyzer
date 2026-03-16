@@ -60,6 +60,7 @@ class AnalysisOutput:
     player_stats: dict[str, dict[str, float | int]]
     team_stats: dict[str, dict[str, float | int]]
     report_text: str
+    tracking_note: str | None = None
     rendered_media_path: str | None = None
     rendered_media_kind: str | None = None
     rendered_media_note: str | None = None

@@ -50,6 +50,12 @@ if run_clicked:
         result, source_ref = _run_pipeline(mode, upload)
         st.success(f'Analysis complete from: {source_ref}')
 
+        if result.tracking_note:
+            if mode == 'Raw MP4 Upload':
+                st.warning(result.tracking_note)
+            else:
+                st.info(result.tracking_note)
+
         st.subheader('Rendered Analysis')
         if result.rendered_media_path and Path(result.rendered_media_path).exists():
             media_path = Path(result.rendered_media_path)

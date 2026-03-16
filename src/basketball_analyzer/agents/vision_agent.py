@@ -14,6 +14,19 @@ class VisionAgent(BaseAgent):
 
     def __init__(self) -> None:
         self.prototype_cv = PrototypeCVExtractor()
+        self.last_run_note: str | None = None
+
+    def _quality_note(self, frames: list[TrackingFrame]) -> str | None:
+        if not frames:
+            return 'The raw MP4 tracker could not detect enough usable player/ball data from this clip yet. No demo fallback was used.'
+
+        avg_players = sum(len(frame.players) for frame in frames) / len(frames)
+        ball_ratio = sum(1 for frame in frames if frame.ball is not None) / len(frames)
+        if avg_players < 3 or ball_ratio < 0.25:
+            return (
+                'The raw MP4 tracker produced low-signal detections. Treat this run as prototype output and prefer the JSON tracking path for cleaner analysis.'
+            )
+        return None
 
     def _from_json(self, path: Path) -> list[TrackingFrame]:
         raw = json.loads(path.read_text(encoding='utf-8'))
@@ -52,16 +65,18 @@ class VisionAgent(BaseAgent):
         return frames
 
     def run(self, video_path: str | Path) -> list[TrackingFrame]:
+        self.last_run_note = None
         path = Path(video_path)
         token = str(video_path).lower()
 
         if token in {'demo', '__demo__', 'sample.mp4'}:
+            self.last_run_note = 'Running the built-in demo sequence.'
             return generate_demo_frames()
         if path.suffix.lower() == '.json' and path.exists():
+            self.last_run_note = 'Running from tracked JSON input.'
             return self._from_json(path)
         if path.exists() and path.suffix.lower() == '.mp4':
             frames = self.prototype_cv.run(path)
-            if frames:
-                return frames
-            return generate_demo_frames()
+            self.last_run_note = self._quality_note(frames)
+            return frames
         return []

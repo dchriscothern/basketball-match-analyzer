@@ -52,6 +52,7 @@ class BasketballAnalysisPipeline:
             player_stats=player_stats,
             team_stats=team_stats,
             report_text=report_text,
+            tracking_note=self.vision_agent.last_run_note,
             rendered_media_path=rendered_media_path,
             rendered_media_kind=rendered_media_kind,
             rendered_media_note=rendered_media_note,
