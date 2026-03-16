@@ -1,0 +1,11 @@
+[
+  {
+    "frame_index": 0,
+    "timestamp_s": 0.0,
+    "players": [
+      {"track_id": "home_g1", "team_id": "home", "bbox": {"x1": 166, "y1": 220, "x2": 194, "y2": 280}},
+      {"track_id": "away_g1", "team_id": "away", "bbox": {"x1": 606, "y1": 220, "x2": 634, "y2": 280}}
+    ],
+    "ball": {"track_id": "ball", "bbox": {"x1": 175, "y1": 245, "x2": 185, "y2": 255}, "meta": {}}
+  }
+]
