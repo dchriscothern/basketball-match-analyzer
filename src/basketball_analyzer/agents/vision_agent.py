@@ -5,11 +5,15 @@ from pathlib import Path
 
 from .base import BaseAgent
 from ..demo_data import generate_demo_frames
+from ..prototype_cv import PrototypeCVExtractor
 from ..schemas import BBox, Detection, TrackingFrame
 
 
 class VisionAgent(BaseAgent):
     name = 'vision_agent'
+
+    def __init__(self) -> None:
+        self.prototype_cv = PrototypeCVExtractor()
 
     def _from_json(self, path: Path) -> list[TrackingFrame]:
         raw = json.loads(path.read_text(encoding='utf-8'))
@@ -56,7 +60,8 @@ class VisionAgent(BaseAgent):
         if path.suffix.lower() == '.json' and path.exists():
             return self._from_json(path)
         if path.exists() and path.suffix.lower() == '.mp4':
-            # Placeholder for raw MP4 -> tracked detections. Returning demo frames keeps the
-            # project runnable while the real CV stack is added.
+            frames = self.prototype_cv.run(path)
+            if frames:
+                return frames
             return generate_demo_frames()
         return []

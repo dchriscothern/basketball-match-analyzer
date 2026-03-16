@@ -9,7 +9,9 @@ description = "Basketball-focused multi-agent video analysis scaffold"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{name = "Codex"}]
-dependencies = []
+dependencies = [
+  "streamlit>=1.40",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

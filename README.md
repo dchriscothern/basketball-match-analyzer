@@ -8,16 +8,15 @@ A basketball-specific multi-agent video analysis repo inspired by multi-agent fo
 
 ## What You Can See In Action Right Now
 
-This repo now has a runnable demo mode.
+This repo now has both a CLI demo and a Streamlit app.
 
 - `demo` input generates a synthetic basketball possession sequence
 - `EventsAgent` detects passes, turnovers, steals, shot attempts, and rebounds
 - `AnalyticsAgent` rolls those into player and team stats
 - `ReportingAgent` writes a short game-style summary
+- Streamlit lets you run the demo visually and inspect events/stats in one place
 
-That means you can run the full pipeline today even before real video detection is wired in.
-
-## Demo Run
+## Run The Demo In The Terminal
 
 ```powershell
 cd C:\GitHubasketball-match-analyzer
@@ -27,13 +26,25 @@ python -m pip install -e .
 python -m basketball_analyzer.cli --video demo --output outputs
 ```
 
-Outputs written to `outputs/`:
+## Run The Streamlit App
 
-- `report.txt`
-- `events.json`
-- `possession_timeline.json`
-- `player_stats.json`
-- `team_stats.json`
+```powershell
+cd C:\GitHubasketball-match-analyzer
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e .
+streamlit run app.py
+```
+
+## Input Modes
+
+1. `demo`
+   The fastest way to see the whole system working.
+
+2. `Tracked JSON`
+   The best real-data path right now. If you already have external tracking output, upload a JSON file and let the downstream agents do eventing, stats, and reporting.
+
+3. `Raw MP4`
+   A crude first-pass OpenCV prototype is included for raw video. It is not production-quality tracking. It sparsely samples frames, guesses moving player blobs, tries to find an orange ball, and uses left/right court halves as a temporary team proxy. If that fails, the repo falls back to the demo sequence.
 
 ## Current Basketball Event Logic
 
@@ -48,7 +59,7 @@ Implemented now:
 
 ## What Still Needs Real Model Integrations
 
-- computer vision player / ball detection from raw MP4
+- robust player / ball detection from raw MP4
 - jersey / team classification from actual crops or embeddings
 - court calibration for x/y normalization and zone logic
 - made / missed shot confirmation from trajectory + hoop zone
@@ -57,7 +68,7 @@ Implemented now:
 
 ## Suggested Next Milestones
 
-1. Replace `VisionAgent` with YOLO / OpenCV / tracker integration.
-2. Add court-aware shot and zone logic.
-3. Add a true Orchestrator Agent.
+1. Replace the prototype MP4 extractor with YOLO / ByteTrack / court calibration.
+2. Add shot zones, makes/misses, and rebounds from trajectory logic.
+3. Add an Orchestrator Agent and messaging hooks.
 4. Add Telegram / Slack / Discord delivery for automated reports.
