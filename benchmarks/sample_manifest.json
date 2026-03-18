@@ -1,0 +1,12 @@
+[
+  {
+    "name": "demo_sequence",
+    "source": "demo",
+    "analysis_profile": "Fast Preview"
+  },
+  {
+    "name": "wnba_clip_url",
+    "source": "https://youtube.com/clip/UgkxPOnUlaEAw-_9okTE5jhHxVAvvsGla8VY?si=nid_Hfq-w9kKP3b3",
+    "analysis_profile": "Standard Clip"
+  }
+]

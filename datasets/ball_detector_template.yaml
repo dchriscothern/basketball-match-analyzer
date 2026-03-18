@@ -1,0 +1,7 @@
+path: C:/GitHub/basketball-match-analyzer/datasets/ball_detector
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: basketball

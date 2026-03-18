@@ -61,6 +61,8 @@ class AnalysisOutput:
     team_stats: dict[str, dict[str, float | int]]
     report_text: str
     tracking_note: str | None = None
+    calibration_note: str | None = None
     rendered_media_path: str | None = None
     rendered_media_kind: str | None = None
     rendered_media_note: str | None = None
+    rendered_preview_path: str | None = None

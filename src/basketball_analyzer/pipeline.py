@@ -24,8 +24,13 @@ class BasketballAnalysisPipeline:
         self.reporting_agent = ReportingAgent()
         self.video_renderer_agent = VideoRendererAgent()
 
-    def run(self, video_path: str | Path = 'demo', render_output_path: str | Path | None = None) -> AnalysisOutput:
-        frames = self.vision_agent.run(video_path)
+    def run(
+        self,
+        video_path: str | Path = 'demo',
+        render_output_path: str | Path | None = None,
+        tracking_backend: str = 'auto',
+    ) -> AnalysisOutput:
+        frames = self.vision_agent.run(video_path, backend=tracking_backend)
         frames = self.ball_interpolator.run(frames)
         frames = self.team_classifier.run(frames)
         possession_timeline, events = self.events_agent.run(frames)
@@ -34,6 +39,7 @@ class BasketballAnalysisPipeline:
         rendered_media_path = None
         rendered_media_kind = None
         rendered_media_note = None
+        rendered_preview_path = None
         if render_output_path is not None:
             render_result = self.video_renderer_agent.render(
                 frames,
@@ -44,7 +50,7 @@ class BasketballAnalysisPipeline:
                 source_video_path=video_path,
             )
             if render_result is not None:
-                rendered_media_path, rendered_media_kind, rendered_media_note = render_result
+                rendered_media_path, rendered_media_kind, rendered_media_note, rendered_preview_path = render_result
         return AnalysisOutput(
             frames=frames,
             possession_timeline=possession_timeline,
@@ -53,7 +59,9 @@ class BasketballAnalysisPipeline:
             team_stats=team_stats,
             report_text=report_text,
             tracking_note=self.vision_agent.last_run_note,
+            calibration_note=self.vision_agent.last_calibration_note,
             rendered_media_path=rendered_media_path,
             rendered_media_kind=rendered_media_kind,
             rendered_media_note=rendered_media_note,
+            rendered_preview_path=rendered_preview_path,
         )

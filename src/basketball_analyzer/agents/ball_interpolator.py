@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import math
+from copy import deepcopy
+
 from .base import BaseAgent
 from ..schemas import BBox, Detection, TrackingFrame
 
@@ -7,7 +10,22 @@ from ..schemas import BBox, Detection, TrackingFrame
 class BallInterpolator(BaseAgent):
     name = "ball_interpolator"
 
+    def _distance(self, a: tuple[float, float], b: tuple[float, float]) -> float:
+        return math.dist(a, b)
+
     def run(self, frames: list[TrackingFrame]) -> list[TrackingFrame]:
+        filtered_known: list[tuple[int, Detection]] = []
+        max_jump = 140.0
+        for idx, frame in enumerate(frames):
+            if frame.ball is None:
+                continue
+            if filtered_known:
+                _, prev_ball = filtered_known[-1]
+                if self._distance(prev_ball.bbox.center, frame.ball.bbox.center) > max_jump:
+                    frame.ball = None
+                    continue
+            filtered_known.append((idx, frame.ball))
+
         missing = [idx for idx, frame in enumerate(frames) if frame.ball is None]
         if not missing:
             return frames
@@ -42,6 +60,10 @@ class BallInterpolator(BaseAgent):
                 bbox=bbox,
                 confidence=min(left_ball.confidence, right_ball.confidence),
                 team_id=left_ball.team_id or right_ball.team_id,
-                meta={"interpolated": True},
+                meta={
+                    **deepcopy(left_ball.meta),
+                    **deepcopy(right_ball.meta),
+                    "interpolated": True,
+                },
             )
         return frames

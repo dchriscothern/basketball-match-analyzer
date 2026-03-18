@@ -1,0 +1,21 @@
+{
+  "settings_version": "0.0.6",
+  "datasets_dir": "C:\\GitHub\\datasets",
+  "weights_dir": "C:\\GitHub\\basketball-match-analyzer\\weights",
+  "runs_dir": "C:\\GitHub\\basketball-match-analyzer\\runs",
+  "uuid": "9dc50e64ed995c38f504022a0387ef4165bc2c8caf7cc561fa4565d2161e2f2d",
+  "sync": true,
+  "api_key": "",
+  "openai_api_key": "",
+  "clearml": true,
+  "comet": true,
+  "dvc": true,
+  "hub": true,
+  "mlflow": true,
+  "neptune": true,
+  "raytune": true,
+  "tensorboard": false,
+  "wandb": false,
+  "vscode_msg": true,
+  "openvino_msg": true
+}

@@ -5,6 +5,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from .base import BaseAgent
+from ..court_profile import WNBA_COURT
 from ..schemas import Event, PossessionFrame, TrackingFrame
 
 try:
@@ -21,21 +22,117 @@ BALL_COLOR = '#f59e0b'
 LINE_COLOR = '#f8fafc'
 COURT_COLOR = '#9a3412'
 PAINT_COLOR = '#7c2d12'
+PX_PER_FOOT_X = COURT_WIDTH / WNBA_COURT.length_ft
+PX_PER_FOOT_Y = COURT_HEIGHT / WNBA_COURT.width_ft
 
 
 class VideoRendererAgent(BaseAgent):
     name = 'video_renderer_agent'
 
+    def _ft_x(self, feet: float) -> float:
+        return feet * PX_PER_FOOT_X
+
+    def _ft_y(self, feet: float) -> float:
+        return feet * PX_PER_FOOT_Y
+
+    def _preview_frame(self, overlay, preview_images: list[Image.Image], index: int) -> None:
+        if index % 2 != 0:
+            return
+        rgb_frame = cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB)
+        image = Image.fromarray(rgb_frame)
+        image.thumbnail((960, 540))
+        preview_images.append(image)
+
+    def _ball_radius(self, ball_bbox, frame_height: int) -> int:
+        box_width = max(1.0, ball_bbox.x2 - ball_bbox.x1)
+        box_height = max(1.0, ball_bbox.y2 - ball_bbox.y1)
+        estimated = int(min(box_width, box_height) * 0.28)
+        return max(4, min(max(8, int(frame_height * 0.018)), estimated))
+
     def _draw_court(self, draw: ImageDraw.ImageDraw) -> None:
+        center_x = COURT_WIDTH / 2
+        center_y = COURT_HEIGHT / 2
+        lane_half = self._ft_y(WNBA_COURT.lane_width_ft / 2)
+        lane_depth = self._ft_x(WNBA_COURT.free_throw_line_ft)
+        restricted_radius_x = self._ft_x(WNBA_COURT.restricted_area_radius_ft)
+        restricted_radius_y = self._ft_y(WNBA_COURT.restricted_area_radius_ft)
+        hoop_offset = self._ft_x(5.25)
+        corner_y1 = self._ft_y(WNBA_COURT.corner_three_sideline_in)
+        corner_y2 = COURT_HEIGHT - corner_y1
+        corner_depth = self._ft_x(WNBA_COURT.corner_three_baseline_in)
+        arc_radius_x = self._ft_x(WNBA_COURT.three_point_radius_ft)
+        arc_radius_y = self._ft_y(WNBA_COURT.three_point_radius_ft)
+
         draw.rectangle((0, 0, COURT_WIDTH - 1, COURT_HEIGHT - 1), outline=LINE_COLOR, width=4)
-        draw.line((COURT_WIDTH / 2, 0, COURT_WIDTH / 2, COURT_HEIGHT), fill=LINE_COLOR, width=3)
-        draw.ellipse((COURT_WIDTH / 2 - 60, COURT_HEIGHT / 2 - 60, COURT_WIDTH / 2 + 60, COURT_HEIGHT / 2 + 60), outline=LINE_COLOR, width=3)
-        draw.rectangle((0, 170, 160, 330), outline=LINE_COLOR, fill=PAINT_COLOR, width=3)
-        draw.rectangle((COURT_WIDTH - 160, 170, COURT_WIDTH, 330), outline=LINE_COLOR, fill=PAINT_COLOR, width=3)
-        draw.arc((20, 170, 140, 330), start=270, end=90, fill=LINE_COLOR, width=3)
-        draw.arc((COURT_WIDTH - 140, 170, COURT_WIDTH - 20, 330), start=90, end=270, fill=LINE_COLOR, width=3)
-        draw.ellipse((45, 235, 75, 265), outline=LINE_COLOR, width=3)
-        draw.ellipse((COURT_WIDTH - 75, 235, COURT_WIDTH - 45, 265), outline=LINE_COLOR, width=3)
+        draw.line((center_x, 0, center_x, COURT_HEIGHT), fill=LINE_COLOR, width=3)
+        draw.ellipse(
+            (center_x - self._ft_x(6), center_y - self._ft_y(6), center_x + self._ft_x(6), center_y + self._ft_y(6)),
+            outline=LINE_COLOR,
+            width=3,
+        )
+
+        draw.rectangle((0, center_y - lane_half, lane_depth, center_y + lane_half), outline=LINE_COLOR, fill=PAINT_COLOR, width=3)
+        draw.rectangle((COURT_WIDTH - lane_depth, center_y - lane_half, COURT_WIDTH, center_y + lane_half), outline=LINE_COLOR, fill=PAINT_COLOR, width=3)
+
+        draw.arc(
+            (lane_depth - self._ft_x(6), center_y - self._ft_y(6), lane_depth + self._ft_x(6), center_y + self._ft_y(6)),
+            start=270,
+            end=90,
+            fill=LINE_COLOR,
+            width=3,
+        )
+        draw.arc(
+            (COURT_WIDTH - lane_depth - self._ft_x(6), center_y - self._ft_y(6), COURT_WIDTH - lane_depth + self._ft_x(6), center_y + self._ft_y(6)),
+            start=90,
+            end=270,
+            fill=LINE_COLOR,
+            width=3,
+        )
+
+        draw.ellipse(
+            (hoop_offset - 8, center_y - 8, hoop_offset + 8, center_y + 8),
+            outline=LINE_COLOR,
+            width=3,
+        )
+        draw.ellipse(
+            (COURT_WIDTH - hoop_offset - 8, center_y - 8, COURT_WIDTH - hoop_offset + 8, center_y + 8),
+            outline=LINE_COLOR,
+            width=3,
+        )
+
+        draw.arc(
+            (hoop_offset - restricted_radius_x, center_y - restricted_radius_y, hoop_offset + restricted_radius_x, center_y + restricted_radius_y),
+            start=270,
+            end=90,
+            fill=LINE_COLOR,
+            width=3,
+        )
+        draw.arc(
+            (COURT_WIDTH - hoop_offset - restricted_radius_x, center_y - restricted_radius_y, COURT_WIDTH - hoop_offset + restricted_radius_x, center_y + restricted_radius_y),
+            start=90,
+            end=270,
+            fill=LINE_COLOR,
+            width=3,
+        )
+
+        draw.line((0, corner_y1, corner_depth, corner_y1), fill=LINE_COLOR, width=3)
+        draw.line((0, corner_y2, corner_depth, corner_y2), fill=LINE_COLOR, width=3)
+        draw.line((COURT_WIDTH - corner_depth, corner_y1, COURT_WIDTH, corner_y1), fill=LINE_COLOR, width=3)
+        draw.line((COURT_WIDTH - corner_depth, corner_y2, COURT_WIDTH, corner_y2), fill=LINE_COLOR, width=3)
+        draw.arc(
+            (hoop_offset - arc_radius_x, center_y - arc_radius_y, hoop_offset + arc_radius_x, center_y + arc_radius_y),
+            start=302,
+            end=58,
+            fill=LINE_COLOR,
+            width=3,
+        )
+        draw.arc(
+            (COURT_WIDTH - hoop_offset - arc_radius_x, center_y - arc_radius_y, COURT_WIDTH - hoop_offset + arc_radius_x, center_y + arc_radius_y),
+            start=122,
+            end=238,
+            fill=LINE_COLOR,
+            width=3,
+        )
 
     def _recent_event(self, timestamp_s: float, events: list[Event]) -> Event | None:
         latest = None
@@ -57,7 +154,7 @@ class VideoRendererAgent(BaseAgent):
         events: list[Event],
         team_stats: dict[str, dict[str, float | int]],
         output_path: Path,
-    ) -> tuple[str, str, str]:
+    ) -> tuple[str, str, str, str]:
         images: list[Image.Image] = []
 
         for frame in frames:
@@ -80,14 +177,18 @@ class VideoRendererAgent(BaseAgent):
                 draw.text((x1, max(0, y1 - 16)), player.track_id, fill='white')
 
             if frame.ball is not None:
-                bx1 = int(frame.ball.bbox.x1)
-                by1 = int(frame.ball.bbox.y1)
-                bx2 = int(frame.ball.bbox.x2)
-                by2 = int(frame.ball.bbox.y2)
-                draw.ellipse((bx1, by1, bx2, by2), fill=BALL_COLOR, outline='#111827', width=2)
+                center_x = int(frame.ball.bbox.center[0])
+                center_y = int(frame.ball.bbox.center[1])
+                radius = self._ball_radius(frame.ball.bbox, COURT_HEIGHT)
+                draw.ellipse(
+                    (center_x - radius, center_y - radius, center_x + radius, center_y + radius),
+                    fill=BALL_COLOR,
+                    outline='#111827',
+                    width=2,
+                )
 
             draw.rectangle((0, COURT_HEIGHT, COURT_WIDTH, COURT_HEIGHT + 110), fill='#0f172a')
-            draw.text((20, COURT_HEIGHT + 12), f'Time {frame.timestamp_s:0.1f}s', fill='white')
+            draw.text((20, COURT_HEIGHT + 12), f'{WNBA_COURT.name} court | Time {frame.timestamp_s:0.1f}s', fill='white')
             draw.text((160, COURT_HEIGHT + 12), f'Possession: {poss_team or "none"}', fill='white')
             draw.text((20, COURT_HEIGHT + 42), f"Home: {team_stats.get('home', {}).get('pass', 0)} passes | {team_stats.get('home', {}).get('steal', 0)} steals | {team_stats.get('home', {}).get('turnover', 0)} turnovers", fill='#bfdbfe')
             draw.text((20, COURT_HEIGHT + 68), f"Away: {team_stats.get('away', {}).get('pass', 0)} passes | {team_stats.get('away', {}).get('steal', 0)} steals | {team_stats.get('away', {}).get('turnover', 0)} turnovers", fill='#fecaca')
@@ -111,6 +212,7 @@ class VideoRendererAgent(BaseAgent):
             str(gif_path),
             'gif',
             'Rendered as a synthetic court animation. Install OpenCV to enable source-video overlays for MP4 uploads.',
+            str(gif_path),
         )
 
     def _render_source_video_overlay(
@@ -121,7 +223,7 @@ class VideoRendererAgent(BaseAgent):
         team_stats: dict[str, dict[str, float | int]],
         output_path: Path,
         source_video_path: Path,
-    ) -> tuple[str, str, str] | None:
+    ) -> tuple[str, str, str, str] | None:
         if cv2 is None:
             return None
 
@@ -143,11 +245,29 @@ class VideoRendererAgent(BaseAgent):
             capture.release()
             return None
 
-        for frame in frames:
-            capture.set(cv2.CAP_PROP_POS_MSEC, frame.timestamp_s * 1000.0)
+        preview_images: list[Image.Image] = []
+
+        target_frames = {frame.frame_index: frame for frame in frames}
+        if not target_frames:
+            capture.release()
+            writer.release()
+            return None
+
+        current_index = 0
+        rendered_count = 0
+        last_target_index = max(target_frames)
+
+        while True:
             ok, raw_frame = capture.read()
             if not ok:
+                break
+            if current_index not in target_frames:
+                current_index += 1
+                if current_index > last_target_index:
+                    break
                 continue
+
+            frame = target_frames[current_index]
 
             overlay = raw_frame.copy()
             poss_player, poss_team = self._possession_lookup(frame.frame_index, possession_timeline)
@@ -174,7 +294,7 @@ class VideoRendererAgent(BaseAgent):
 
             if frame.ball is not None:
                 center = tuple(int(value) for value in frame.ball.bbox.center)
-                radius = max(6, int((frame.ball.bbox.x2 - frame.ball.bbox.x1) / 2))
+                radius = self._ball_radius(frame.ball.bbox, height)
                 cv2.circle(overlay, center, radius, (11, 158, 245), -1)
                 cv2.circle(overlay, center, radius, (17, 24, 39), 2)
 
@@ -217,12 +337,29 @@ class VideoRendererAgent(BaseAgent):
 
             writer.write(overlay)
 
+            self._preview_frame(overlay, preview_images, rendered_count)
+            rendered_count += 1
+            current_index += 1
+            if current_index > last_target_index:
+                break
+
         capture.release()
         writer.release()
+        preview_path = output_path.with_name(f'{output_path.stem}_preview.gif')
+        if preview_images:
+            preview_images[0].save(
+                preview_path,
+                save_all=True,
+                append_images=preview_images[1:],
+                duration=140,
+                loop=0,
+                format='GIF',
+            )
         return (
             str(output_file),
             'mp4',
-            'Rendered as an overlay on sampled source-video frames from the uploaded MP4.',
+            'Rendered as an overlay on sampled source-video frames from the uploaded MP4. The in-app preview uses a GIF for better browser compatibility.',
+            str(preview_path) if preview_images else str(output_file),
         )
 
     def render(
@@ -233,7 +370,7 @@ class VideoRendererAgent(BaseAgent):
         team_stats: dict[str, dict[str, float | int]],
         output_path: str | Path,
         source_video_path: str | Path = 'demo',
-    ) -> tuple[str, str, str] | None:
+    ) -> tuple[str, str, str, str] | None:
         if not frames:
             return None
 

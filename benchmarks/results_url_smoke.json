@@ -1,0 +1,35 @@
+[
+  {
+    "case_name": "demo_sequence",
+    "source": "demo",
+    "prepared_source": "demo",
+    "prepared_label": "full clip",
+    "analysis_profile": "Fast Preview",
+    "tracking_backend": "yolo_detect",
+    "vision_runtime_s": 0.001,
+    "total_runtime_s": 0.002,
+    "frames": 29,
+    "avg_players_detected": 10.0,
+    "unique_player_tracks": 10,
+    "ball_frame_ratio_raw": 1.0,
+    "ball_frame_ratio_post": 1.0,
+    "possession_frame_ratio": 0.517,
+    "events": 4,
+    "passes": 2,
+    "turnovers": 0,
+    "steals": 0,
+    "shots": 1,
+    "raw_players_total": 290,
+    "players_removed_post_classification": 0,
+    "tracking_note": "Running the built-in demo sequence.",
+    "calibration_note": null,
+    "report_excerpt": "Home won the key stretch with 2 completed passes, 0 steals and 100.0% of tracked possession. Home generated 1 shot attempts but were hurt by 0 turnovers. The demo shows the agent s"
+  },
+  {
+    "case_name": "wnba_clip_url",
+    "source": "https://youtube.com/clip/UgkxPOnUlaEAw-_9okTE5jhHxVAvvsGla8VY?si=nid_Hfq-w9kKP3b3",
+    "analysis_profile": "Standard Clip",
+    "tracking_backend": "yolo_detect",
+    "error": "The video URL download failed."
+  }
+]
