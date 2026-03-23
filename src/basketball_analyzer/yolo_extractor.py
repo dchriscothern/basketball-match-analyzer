@@ -51,6 +51,9 @@ class YoloCVExtractor:
         self._hoop_anchors: dict[str, tuple[float, float]] | None = None
         self._previous_frame = None
         self._ball_missing_streak = 0
+        self._consecutive_estimated_frames = 0
+        self._frames_since_observed_ball = 0
+        self._estimated_window: list[bool] = []
         self._last_ball_owner_track_id: str | None = None
         self._last_ball_relative_offset: tuple[float, float] | None = None
         self._last_ball_velocity: tuple[float, float] | None = None
@@ -637,6 +640,9 @@ class YoloCVExtractor:
         self._hoop_anchors = None
         self._previous_frame = None
         self._ball_missing_streak = 0
+        self._consecutive_estimated_frames = 0
+        self._frames_since_observed_ball = 0
+        self._estimated_window = []
         self._last_ball_owner_track_id = None
         self._last_ball_relative_offset = None
         self._last_ball_velocity = None
@@ -659,7 +665,8 @@ class YoloCVExtractor:
             stream=True,
             classes=[0, 32],
             conf=self.conf,
-            iou=0.45,
+            iou=0.35,
+            imgsz=1280,
             verbose=False,
             device='cpu',
         )
@@ -689,7 +696,14 @@ class YoloCVExtractor:
                             continue
                         player_candidates.append(((x1, y1, x2, y2), float(confidence)))
                     elif int(cls_id) == 32:
-                        if not self._is_on_court(orig, (x1, y1, x2, y2)):
+                        # Ball can be in flight above the playable area or near hoop edges.
+                        # Use a relaxed frame-boundary check instead of full court membership.
+                        _bh, _bw = orig.shape[:2]
+                        _bcx = (x1 + x2) / 2.0
+                        _bcy = (y1 + y2) / 2.0
+                        if _bcy < _bh * 0.12 or _bcy > _bh * 0.97:
+                            continue
+                        if _bcx < _bw * 0.02 or _bcx > _bw * 0.98:
                             continue
                         ball_candidates.append(((x1, y1, x2, y2), float(confidence)))
 
@@ -731,13 +745,45 @@ class YoloCVExtractor:
                     learned_ball = self._enrich_ball_metadata(learned_ball)
                 fallback_ball = self._ball_fallback(orig, players) if ball is None else None
                 motion_ball = self._motion_ball_fallback(orig, players) if ball is None else None
-                estimated_ball = self._player_ball_estimate(orig, players) if ball is None else None
+                estimated_ball = (
+                    self._player_ball_estimate(orig, players)
+                    if ball is None and len(players) >= 4
+                    else None
+                )
                 ball = self._choose_ball_candidate(
                     frame=orig,
                     players=players,
                     primary=learned_ball or ball or fallback_ball,
                     alternatives=[motion_ball, estimated_ball, fallback_ball if learned_ball is not None else None],
                 )
+                if ball is not None:
+                    ball_meta = ball.meta or {}
+                    is_estimated = ball_meta.get('estimated_ball') or ball_meta.get('fallback_ball')
+                    is_learned = ball_meta.get('learned_ball_detector')
+                    if not is_learned and not is_estimated and ball.confidence < 0.18:
+                        ball = None
+                if ball is not None:
+                    ball_meta = ball.meta or {}
+                    if ball_meta.get('estimated_ball'):
+                        self._consecutive_estimated_frames += 1
+                        print(f"ESTIMATED_BALL frame={frame_index} consecutive={self._consecutive_estimated_frames}")
+                        self._estimated_window.append(True)
+                        if len(self._estimated_window) > 20:
+                            self._estimated_window.pop(0)
+                        if self._consecutive_estimated_frames > 4 or sum(self._estimated_window) > 8:
+                            ball = None
+                            self._estimated_window[-1] = False
+                            self._consecutive_estimated_frames = 0
+                    else:
+                        self._consecutive_estimated_frames = 0
+                        self._estimated_window.append(False)
+                        if len(self._estimated_window) > 20:
+                            self._estimated_window.pop(0)
+                else:
+                    self._consecutive_estimated_frames = 0
+                    self._estimated_window.append(False)
+                    if len(self._estimated_window) > 20:
+                        self._estimated_window.pop(0)
                 if ball is not None:
                     self._record_ball_context(ball, players)
 
@@ -753,4 +799,37 @@ class YoloCVExtractor:
             self._previous_frame = orig.copy()
             frame_index += 1
 
+        _ball_count = sum(1 for _f in frames if _f.ball is not None)
+        _learned_ball_count = sum(
+            1
+            for _f in frames
+            if _f.ball is not None and (_f.ball.meta or {}).get('learned_ball_detector')
+        )
+        _fallback_ball_count = sum(
+            1
+            for _f in frames
+            if _f.ball is not None and (_f.ball.meta or {}).get('fallback_ball')
+        )
+        _motion_ball_count = sum(
+            1
+            for _f in frames
+            if _f.ball is not None and (_f.ball.meta or {}).get('motion_ball')
+        )
+        _estimated_ball_count = sum(
+            1
+            for _f in frames
+            if _f.ball is not None and (_f.ball.meta or {}).get('estimated_ball')
+        )
+        _generic_ball_count = max(
+            0,
+            _ball_count - _learned_ball_count - _fallback_ball_count - _motion_ball_count - _estimated_ball_count,
+        )
+        print(
+            f"YoloCVExtractor: {len(frames)} frames processed | "
+            f"final ball present in {_ball_count} "
+            f"({100.0 * _ball_count / len(frames) if frames else 0.0:.1f}%) | "
+            f"learned={_learned_ball_count}, generic_yolo={_generic_ball_count}, "
+            f"fallback={_fallback_ball_count}, motion={_motion_ball_count}, "
+            f"estimated={_estimated_ball_count}"
+        )
         return frames

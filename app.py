@@ -15,8 +15,8 @@ from basketball_analyzer.video_sources import download_video_url
 st.set_page_config(page_title='Basketball Match Analyzer', layout='wide')
 
 
-@st.cache_resource
-def _get_pipeline() -> BasketballAnalysisPipeline:
+@st.cache_resource(max_entries=1)
+def _get_pipeline(version: int = 8) -> BasketballAnalysisPipeline:
     return BasketballAnalysisPipeline()
 
 
@@ -29,7 +29,7 @@ def _render_preview(preview_path: Path) -> None:
             unsafe_allow_html=True,
         )
         return
-    st.image(str(preview_path), caption='Rendered tracking + events animation', use_container_width=True)
+    st.image(str(preview_path), caption='Rendered tracking + events animation', width='stretch')
 
 
 def _run_pipeline(
@@ -39,7 +39,7 @@ def _run_pipeline(
     analysis_profile: str = 'Standard Clip',
     tracking_backend: str = 'auto',
 ):
-    pipeline = _get_pipeline()
+    pipeline = _get_pipeline(version=8)
     render_dir = Path(tempfile.mkdtemp(prefix='basketball_render_'))
     render_path = render_dir / 'analysis.gif'
 
@@ -116,7 +116,7 @@ with st.sidebar:
             format_func=lambda item: item[0],
         )[1]
 
-    run_clicked = st.button('Run Analysis', type='primary', use_container_width=True)
+    run_clicked = st.button('Run Analysis', type='primary', width='stretch')
     st.caption('Raw MP4 can now use Auto, Prototype CV, YOLO Detect, YOLO + BoT-SORT, or YOLO + ByteTrack. Choose Fast Preview for speed, Standard Clip for better coverage, or Full Clip for the heaviest run.')
 
 if run_clicked:
@@ -147,7 +147,7 @@ if run_clicked:
                 data=media_path.read_bytes(),
                 file_name=media_path.name,
                 mime='video/mp4' if media_path.suffix.lower() == '.mp4' else 'image/gif',
-                use_container_width=True,
+                width='stretch',
             )
         else:
             st.info('Rendered animation was not available for this run.')
@@ -173,17 +173,17 @@ if run_clicked:
                     'metadata': json.dumps(event.metadata),
                 }
                 for event in result.events
-            ], use_container_width=True)
+            ], width='stretch')
         with tab2:
             st.dataframe([
                 {'player_id': player_id, **stats}
                 for player_id, stats in sorted(result.player_stats.items())
-            ], use_container_width=True)
+            ], width='stretch')
         with tab3:
             st.dataframe([
                 {'team_id': team_id, **stats}
                 for team_id, stats in sorted(result.team_stats.items())
-            ], use_container_width=True)
+            ], width='stretch')
 
         with st.expander('Possession Timeline'):
             st.dataframe([
@@ -194,7 +194,7 @@ if run_clicked:
                     'team_id': item.team_id,
                 }
                 for item in result.possession_timeline
-            ], use_container_width=True)
+            ], width='stretch')
     except Exception as exc:
         st.error(f'Analysis failed: {exc}')
 else:

@@ -167,6 +167,8 @@ class VideoRendererAgent(BaseAgent):
             recent_event = self._recent_event(frame.timestamp_s, events)
 
             for player in frame.players:
+                if player.meta.get('role') == 'official':
+                    continue
                 color = HOME_COLOR if player.team_id == 'home' else AWAY_COLOR
                 x1 = int(player.bbox.x1)
                 y1 = int(player.bbox.y1)
@@ -200,11 +202,18 @@ class VideoRendererAgent(BaseAgent):
             images.append(image)
 
         gif_path = output_path.with_suffix('.gif')
+        gif_duration_ms = 180
+        if len(frames) > 1:
+            avg_delta_s = sum(
+                max(0.001, frames[idx].timestamp_s - frames[idx - 1].timestamp_s)
+                for idx in range(1, len(frames))
+            ) / max(1, len(frames) - 1)
+            gif_duration_ms = max(80, int(round(avg_delta_s * 1000)))
         images[0].save(
             gif_path,
             save_all=True,
             append_images=images[1:],
-            duration=180,
+            duration=gif_duration_ms,
             loop=0,
             format='GIF',
         )
@@ -234,11 +243,18 @@ class VideoRendererAgent(BaseAgent):
         fps = capture.get(cv2.CAP_PROP_FPS) or 10.0
         width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) or 1280)
         height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) or 720)
+        output_fps = max(1.0, min(fps, 12.0))
+        if len(frames) > 1:
+            avg_delta_s = sum(
+                max(0.001, frames[idx].timestamp_s - frames[idx - 1].timestamp_s)
+                for idx in range(1, len(frames))
+            ) / max(1, len(frames) - 1)
+            output_fps = max(1.0, min(1.0 / avg_delta_s, fps))
         output_file = output_path.with_suffix('.mp4')
         writer = cv2.VideoWriter(
             str(output_file),
             cv2.VideoWriter_fourcc(*'mp4v'),
-            max(1.0, min(fps, 12.0)),
+            output_fps,
             (width, height),
         )
         if not writer.isOpened():
@@ -274,6 +290,8 @@ class VideoRendererAgent(BaseAgent):
             recent_event = self._recent_event(frame.timestamp_s, events)
 
             for player in frame.players:
+                if player.meta.get('role') == 'official':
+                    continue
                 color = (235, 99, 37) if player.team_id == 'home' else (38, 38, 220)
                 x1 = int(player.bbox.x1)
                 y1 = int(player.bbox.y1)
@@ -347,11 +365,18 @@ class VideoRendererAgent(BaseAgent):
         writer.release()
         preview_path = output_path.with_name(f'{output_path.stem}_preview.gif')
         if preview_images:
+            preview_duration_ms = 140
+            if rendered_count > 1 and len(frames) > 1:
+                avg_delta_s = sum(
+                    max(0.001, frames[idx].timestamp_s - frames[idx - 1].timestamp_s)
+                    for idx in range(1, len(frames))
+                ) / max(1, len(frames) - 1)
+                preview_duration_ms = max(80, int(round(avg_delta_s * 1000 * 2)))
             preview_images[0].save(
                 preview_path,
                 save_all=True,
                 append_images=preview_images[1:],
-                duration=140,
+                duration=preview_duration_ms,
                 loop=0,
                 format='GIF',
             )

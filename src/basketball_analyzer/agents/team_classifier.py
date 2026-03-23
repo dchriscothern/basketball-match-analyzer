@@ -136,6 +136,7 @@ class TeamClassifier(BaseAgent):
             spread = _color_spread(color)
             mean_value = _color_mean(color)
             neutral_dark = spread < 52.0 and mean_value < 125.0
+            neutral_mid = spread < 62.0 and 85.0 <= mean_value <= 180.0
             avg_x, avg_y, avg_h = track_positions.get(track_id, (0.0, 0.0, 0.0))
             top_band = avg_y < frame_height * 0.48
             sideline_edge = avg_x < frame_width * 0.12 or avg_x > frame_width * 0.88
@@ -144,6 +145,8 @@ class TeamClassifier(BaseAgent):
             on_floor_but_small = avg_y > frame_height * 0.48 and small_box
             likely_official_zone = (top_band and sideline_edge) or (top_band and small_box)
             likely_floor_official = neutral_dark and on_floor_but_small and midcourt_lane
+            persistent_small_sideline = small_box and sideline_edge and avg_y < frame_height * 0.72
+            neutral_small_floor_track = neutral_mid and on_floor_but_small and nearest_team_distance > outlier_threshold * 0.4
 
             if (
                 (nearest_team_distance > outlier_threshold and spread < 72.0)
@@ -151,6 +154,8 @@ class TeamClassifier(BaseAgent):
                 or (neutral_dark and likely_official_zone)
                 or (nearest_team_distance > outlier_threshold * 0.55 and likely_floor_official)
                 or (nearest_team_distance > outlier_threshold * 0.8 and likely_official_zone)
+                or (persistent_small_sideline and nearest_team_distance > outlier_threshold * 0.3)
+                or neutral_small_floor_track
             ):
                 non_team_tracks.add(track_id)
         return non_team_tracks
@@ -186,18 +191,45 @@ class TeamClassifier(BaseAgent):
                 frame_width = max(frame_width, float(bbox.x2))
                 frame_height = max(frame_height, float(bbox.y2))
 
+        min_appearances = 5
         track_weights = {track_id: len(colors) for track_id, colors in track_colors.items()}
         track_positions = {
             track_id: _mean_position(samples)
             for track_id, samples in track_positions_raw.items()
             if samples
         }
+        track_appearance_counts = {
+            track_id: len(samples)
+            for track_id, samples in track_positions_raw.items()
+            if samples
+        }
         averaged = {
             track_id: _mean_color(colors)
             for track_id, colors in track_colors.items()
-            if colors
+            if len(colors) >= min_appearances
         }
         assignments = self._cluster_track_colors(averaged, track_weights=track_weights)
+        home_colors = [averaged[track_id] for track_id, team_id in assignments.items() if team_id == 'home' and track_id in averaged]
+        away_colors = [averaged[track_id] for track_id, team_id in assignments.items() if team_id == 'away' and track_id in averaged]
+        if home_colors and away_colors:
+            home_centroid = _mean_color(home_colors)
+            away_centroid = _mean_color(away_colors)
+            team_separation = _distance(home_centroid, away_centroid)
+            outlier_threshold = max(42.0, team_separation * 0.42)
+            print(
+                "TEAM_CENTROIDS: "
+                f"home={[round(value) for value in home_centroid]} "
+                f"away={[round(value) for value in away_centroid]} "
+                f"separation={team_separation:.1f} threshold={outlier_threshold:.1f}"
+            )
+        for track_id, color in sorted(averaged.items()):
+            team = assignments.get(track_id, 'unassigned')
+            pos = track_positions.get(track_id, (0.0, 0.0, 0.0))
+            print(
+                f"TRACK {track_id}: team={team} "
+                f"color=({color[0]:.0f},{color[1]:.0f},{color[2]:.0f}) "
+                f"pos=({pos[0]:.0f},{pos[1]:.0f}) height={pos[2]:.0f}"
+            )
         non_team_tracks = self._find_non_team_tracks(
             averaged,
             assignments,
@@ -205,6 +237,40 @@ class TeamClassifier(BaseAgent):
             frame_width=max(frame_width, 1.0),
             frame_height=max(frame_height, 1.0),
         )
+        total_frames = len(frames)
+        for track_id, count in track_appearance_counts.items():
+            if count < max(3, int(total_frames * 0.08)):
+                non_team_tracks.add(track_id)
+        all_seen_track_ids = {
+            player.track_id
+            for frame in frames
+            for player in frame.players
+        }
+        unclassified_tracks = all_seen_track_ids - set(averaged.keys())
+        non_team_tracks.update(unclassified_tracks)
+        surviving_classified_tracks = [
+            track_id
+            for track_id in assignments
+            if track_id not in non_team_tracks and track_id in track_positions
+        ]
+        surviving_heights = sorted(track_positions[track_id][2] for track_id in surviving_classified_tracks)
+        if len(surviving_classified_tracks) > 5 and surviving_heights:
+            mid = len(surviving_heights) // 2
+            median_height = (
+                surviving_heights[mid]
+                if len(surviving_heights) % 2 == 1
+                else (surviving_heights[mid - 1] + surviving_heights[mid]) / 2.0
+            )
+            extra_official_tracks = [
+                track_id
+                for track_id in surviving_classified_tracks
+                if track_positions[track_id][2] < median_height * 0.88
+                and frame_height * 0.45 < track_positions[track_id][1] < frame_height * 0.78
+            ]
+            if extra_official_tracks:
+                likely_official = min(extra_official_tracks, key=lambda track_id: track_positions[track_id][2])
+                non_team_tracks.add(likely_official)
+                print(f"SIZE_FILTER_TRACK: {likely_official}")
 
         for frame in frames:
             filtered_players = []
@@ -215,4 +281,6 @@ class TeamClassifier(BaseAgent):
                 player.team_id = assignments.get(player.track_id, player.team_id or 'unknown')
                 filtered_players.append(player)
             frame.players = filtered_players
+        print(f"TEAM_CLASSIFIER_RUN: filtered={len(non_team_tracks)} ids={sorted(non_team_tracks)}")
+        print(f"UNCLASSIFIED_TRACKS: {sorted(unclassified_tracks)}")
         return frames
