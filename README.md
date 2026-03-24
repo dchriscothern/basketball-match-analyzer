@@ -38,8 +38,19 @@ This now writes a rendered artifact alongside the JSON outputs and report. Today
 cd C:\GitHub\basketball-match-analyzer
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .
-streamlit run app.py --server.port 8513
+streamlit run dashboard.py --server.port 8513
 ```
+
+`dashboard.py` is the standard Streamlit entrypoint for this repo. The older
+`app.py` module is still present and backs the same UI.
+
+## Branch Convention
+
+This repo now follows the same local convention as the other active projects:
+
+- `main` is the live branch
+- `sandbox` is the staging branch
+- `codex/*` branches are working branches for focused implementation passes
 
 ## Benchmark Backends
 
