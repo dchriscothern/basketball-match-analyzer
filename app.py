@@ -193,11 +193,26 @@ def _render_metric_card(label: str, value: str, detail: str) -> None:
 
 
 def _render_default_state() -> None:
+    st.markdown('<div class="section-label">Purpose And Promise</div>', unsafe_allow_html=True)
     st.markdown(
         """
-        <div class="callout">
-            <strong>Best demo flow:</strong> start with <strong>Demo Sequence</strong> for a guaranteed clean walkthrough, then switch to
-            <strong>Tracked JSON Upload</strong> or a short <strong>WNBA Video URL</strong> if you want to show the real clip pipeline.
+        <div class="demo-card-grid">
+            <div class="demo-card">
+                <h4>Purpose</h4>
+                <p>Turn basketball video into possessions, events, team context, and a visual replay layer that is fast to review.</p>
+            </div>
+            <div class="demo-card">
+                <h4>Why It Matters</h4>
+                <p>Coaches, analysts, and operators should not need to tag every play by hand just to understand what happened.</p>
+            </div>
+            <div class="demo-card">
+                <h4>What To Watch</h4>
+                <p>Look for player movement, possession flow, event detection, and the rendered court replay more than perfect raw tracking.</p>
+            </div>
+            <div class="demo-card">
+                <h4>What We Are Learning</h4>
+                <p>This demo shows what already works now and where better ball tracking, benchmarking, and richer game understanding come next.</p>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -208,21 +223,48 @@ def _render_default_state() -> None:
         <div class="demo-card-grid">
             <div class="demo-card">
                 <h4>Demo Sequence</h4>
-                <p>Fastest walkthrough of possessions, events, team assignment, and the rendered court animation.</p>
+                <p>Best way to introduce the concept, the flow of analysis, and the final replay experience.</p>
             </div>
             <div class="demo-card">
                 <h4>Tracked JSON Upload</h4>
-                <p>Cleanest analysis path when you want stable detections and a stronger downstream story.</p>
+                <p>Best way to show the downstream value with cleaner detections and a more stable event story.</p>
             </div>
             <div class="demo-card">
                 <h4>Raw MP4 / WNBA URL</h4>
-                <p>Best for showing the live prototype pipeline. Great for demo energy, but still visually noisy on ball tracking.</p>
+                <p>Best way to show the live prototype pipeline and the future direction, even if ball tracking is still visually noisy.</p>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.info('Pick a source in the sidebar and click Run Analysis. The rendered animation is the primary showpiece for the demo.')
+    st.info('Pick a source in the sidebar and click Run Analysis. The main thing to sell is the analysis outcome and replay layer, not every raw detection detail.')
+
+
+def _render_story_cards() -> None:
+    st.markdown('<div class="section-label">Purpose, Value, And Next Learnings</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="demo-card-grid">
+            <div class="demo-card">
+                <h4>Purpose</h4>
+                <p>Convert raw basketball footage into a usable layer of possessions, events, context, and replay.</p>
+            </div>
+            <div class="demo-card">
+                <h4>Why It Matters</h4>
+                <p>Faster film review, lighter manual tagging, clearer coaching conversations, and a stronger foundation for automated analysis.</p>
+            </div>
+            <div class="demo-card">
+                <h4>What To Watch</h4>
+                <p>The best signals in this demo are the rendered play view, possession flow, and event timeline rather than perfect ball precision.</p>
+            </div>
+            <div class="demo-card">
+                <h4>What We Learn Next</h4>
+                <p>Better ball tracking, event accuracy benchmarking, richer player and team insights, and eventually more production-ready workflows.</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _event_breakdown(events) -> dict[str, int]:
@@ -277,17 +319,12 @@ _inject_styles()
 st.markdown(
     """
     <section class="demo-hero">
-        <div class="demo-kicker">Live Demo Surface</div>
+        <div class="demo-kicker">Basketball Video Intelligence Demo</div>
         <h1>Basketball Match Analyzer</h1>
         <p class="demo-lead">
-            A basketball-focused analysis demo for possessions, passes, steals, turnovers, shots, rebounds, automated summaries,
-            and a rendered WNBA-style play overlay. The page is tuned to lead with the strongest artifacts while keeping raw MP4 limits honest.
+            This demo turns basketball footage into possessions, events, team context, and a replay-ready court view. The goal is to show why automated game understanding matters,
+            what is already useful today, and what the next iterations can unlock for coaching, scouting, and operations.
         </p>
-        <div class="pill-row">
-            <span class="demo-pill">Best showcase: Demo Sequence or tracked JSON</span>
-            <span class="demo-pill">Raw MP4 available for prototype pipeline demos</span>
-            <span class="demo-pill">Rendered animation first, tables second</span>
-        </div>
     </section>
     """,
     unsafe_allow_html=True,
@@ -295,7 +332,7 @@ st.markdown(
 
 with st.sidebar:
     st.header('Demo Controls')
-    st.caption('For the smoothest walkthrough, use Demo Sequence first and then switch to a short real clip if you want to show the prototype tracking path.')
+    st.caption('For the smoothest walkthrough, start with Demo Sequence. Use a short real clip only when you want to show the current prototype pipeline and where it is heading.')
     mode = st.radio('Choose source', ['Demo Sequence', 'Tracked JSON Upload', 'Raw MP4 Upload', 'WNBA Video URL'])
     upload = None
     video_url = None
@@ -318,7 +355,7 @@ with st.sidebar:
             index=2,
             format_func=lambda item: item[0],
         )[1]
-        st.caption('Recommended for demo: Standard Clip + YOLO Detect. It is the most stable current MP4 path.')
+        st.caption('Recommended for demo: Standard Clip + YOLO Detect. It is the steadiest current real-video path.')
     elif mode == 'WNBA Video URL':
         video_url = st.text_input('Paste WNBA video URL', placeholder='https://www.youtube.com/watch?v=...')
         analysis_profile = st.selectbox('Analysis quality', ['Fast Preview', 'Standard Clip', 'Full Clip'], index=1)
@@ -337,7 +374,7 @@ with st.sidebar:
         st.caption('Use a short highlight or possession clip so the demo stays responsive.')
 
     run_clicked = st.button('Run Analysis', type='primary', width='stretch')
-    st.caption('Raw MP4 supports Auto, Prototype CV, YOLO Detect, YOLO + BoT-SORT, and YOLO + ByteTrack. Standard Clip is the best balance for a live demo.')
+    st.caption('Standard Clip is the best balance for a live demo. Keep the controls simple unless someone specifically asks about the pipeline.')
 
 if run_clicked:
     try:
@@ -389,6 +426,7 @@ if run_clicked:
 
         overview_tab, events_tab, players_tab, teams_tab = st.tabs(['Overview', 'Events', 'Player Stats', 'Team Stats'])
         with overview_tab:
+            _render_story_cards()
             st.markdown('<div class="section-label">Automated Report</div>', unsafe_allow_html=True)
             st.write(result.report_text)
             summary_cols = st.columns(4)
