@@ -198,6 +198,106 @@ class YoloCVExtractor:
             return 999999.0
         return min(self._distance_to_player_box(point, player) for player in players)
 
+    def _player_size_reference(self, players: list[Detection]) -> tuple[float | None, float | None]:
+        if not players:
+            return None, None
+        widths = sorted(player.bbox.x2 - player.bbox.x1 for player in players)
+        heights = sorted(player.bbox.y2 - player.bbox.y1 for player in players)
+        mid = len(widths) // 2
+        return widths[mid], heights[mid]
+
+    def _ball_size_score(self, frame, bbox: BBox, players: list[Detection]) -> float:
+        width = max(1.0, bbox.x2 - bbox.x1)
+        height = max(1.0, bbox.y2 - bbox.y1)
+        min_dim = min(width, height)
+        max_dim = max(width, height)
+        aspect = width / max(height, 1.0)
+        player_width_ref, player_height_ref = self._player_size_reference(players)
+
+        frame_max_dim = max(frame.shape[0], frame.shape[1])
+        frame_limit = max(14.0, frame_max_dim * 0.05)
+        player_limit = player_height_ref * 0.36 if player_height_ref is not None else frame_limit
+        max_ball_dim = max(12.0, min(frame_limit, player_limit))
+        max_ball_area = max_ball_dim * max_ball_dim * 1.55
+
+        score = 0.0
+        if min_dim < 4.0:
+            score -= 0.35
+        else:
+            score += 0.1
+        if max_dim <= max_ball_dim:
+            score += 0.45
+        else:
+            score -= min(4.0, ((max_dim / max_ball_dim) - 1.0) * 3.2)
+        area = width * height
+        if area <= max_ball_area:
+            score += 0.25
+        else:
+            score -= min(3.5, ((area / max_ball_area) - 1.0) * 2.4)
+        if not 0.45 <= aspect <= 1.85:
+            score -= 0.45
+        if (
+            player_width_ref is not None
+            and player_height_ref is not None
+            and width > player_width_ref * 0.48
+            and height > player_height_ref * 0.24
+        ):
+            score -= 1.2
+        return score
+
+    def _ball_candidate_score(self, frame, players: list[Detection], candidate: Detection) -> float:
+        meta = candidate.meta or {}
+        score = float(meta.get('learned_ball_score', meta.get('ball_score', candidate.confidence * 2.4)))
+        if meta.get('estimated_ball'):
+            score -= 0.75
+        elif meta.get('motion_ball'):
+            score -= 0.2
+        elif meta.get('fallback_ball'):
+            score -= 0.05
+        elif meta.get('learned_ball_detector'):
+            score += 0.1
+
+        score += self._ball_size_score(frame, candidate.bbox, players)
+
+        center = candidate.bbox.center
+        nearest_player_distance = self._nearest_player_distance(center, players)
+        if nearest_player_distance <= frame.shape[1] * 0.05:
+            score += 0.75
+        elif nearest_player_distance <= frame.shape[1] * 0.1:
+            score += 0.3
+        elif not meta.get('estimated_ball'):
+            score -= 0.65
+
+        predicted_center = self._predicted_ball_center()
+        if predicted_center is not None:
+            predicted_distance = _distance(center, predicted_center)
+            if predicted_distance <= frame.shape[1] * 0.05:
+                score += 0.95
+            elif predicted_distance <= frame.shape[1] * 0.1:
+                score += 0.3
+            elif meta.get('estimated_ball'):
+                score -= 0.25
+            else:
+                score -= 1.35
+
+        if self._last_ball_center is not None:
+            continuity_distance = _distance(center, self._last_ball_center)
+            if continuity_distance <= frame.shape[1] * 0.05:
+                score += 0.85
+            elif continuity_distance <= frame.shape[1] * 0.1:
+                score += 0.25
+            elif meta.get('estimated_ball'):
+                score -= 0.25
+            else:
+                score -= 1.15
+
+        crop_type = meta.get('learned_ball_crop')
+        if crop_type == 'player' and candidate.confidence < 0.12:
+            score -= 0.8
+        if crop_type == 'full' and candidate.confidence < 0.18:
+            score -= 0.5
+        return score
+
     def _bbox_motion_intensity(self, frame, x: int, y: int, w: int, h: int) -> float:
         if self._previous_frame is None:
             return 0.0
@@ -542,83 +642,38 @@ class YoloCVExtractor:
         primary: Detection | None,
         alternatives: list[Detection | None],
     ) -> Detection | None:
-        if primary is None:
-            best_alternative = None
-            best_score = -999999.0
-            predicted_center = self._predicted_ball_center()
-            for alternative in alternatives:
-                if alternative is not None:
-                    distance_to_player = self._nearest_player_distance(alternative.bbox.center, players)
-                    predicted_distance = (
-                        _distance(alternative.bbox.center, predicted_center)
-                        if predicted_center is not None
-                        else 0.0
-                    )
-                    score = -distance_to_player - predicted_distance * 0.35 + alternative.confidence * 45.0
-                    if score > best_score:
-                        best_score = score
-                        best_alternative = alternative
-            return best_alternative
+        seen: set[tuple[float, float, float, float, str, str]] = set()
+        best_candidate = None
+        best_score = -999999.0
 
-        primary_distance = self._nearest_player_distance(primary.bbox.center, players)
-        continuity_distance = (
-            _distance(primary.bbox.center, self._last_ball_center)
-            if self._last_ball_center is not None
-            else 0.0
-        )
-        primary_meta = primary.meta or {}
-        primary_quality = float(primary_meta.get('ball_score', primary.confidence))
-        primary_motion = float(primary_meta.get('motion_intensity', 0.0))
-        predicted_center = self._predicted_ball_center()
-        primary_predicted_distance = (
-            _distance(primary.bbox.center, predicted_center)
-            if predicted_center is not None
-            else 0.0
-        )
-        for alternative in alternatives:
-            if alternative is None:
+        for candidate in [primary, *alternatives]:
+            if candidate is None:
                 continue
-            alternative_distance = self._nearest_player_distance(alternative.bbox.center, players)
-            alternative_continuity = (
-                _distance(alternative.bbox.center, self._last_ball_center)
-                if self._last_ball_center is not None
-                else 0.0
+            meta = candidate.meta or {}
+            candidate_key = (
+                round(candidate.bbox.x1, 1),
+                round(candidate.bbox.y1, 1),
+                round(candidate.bbox.x2, 1),
+                round(candidate.bbox.y2, 1),
+                str(meta.get('learned_ball_crop', '')),
+                'estimated' if meta.get('estimated_ball') else 'fallback' if meta.get('fallback_ball') else 'motion' if meta.get('motion_ball') else 'learned' if meta.get('learned_ball_detector') else 'generic',
             )
-            alternative_predicted_distance = (
-                _distance(alternative.bbox.center, predicted_center)
-                if predicted_center is not None
-                else 0.0
-            )
-            if (
-                alternative_distance + 8.0 < primary_distance
-                and alternative_continuity <= continuity_distance + frame.shape[1] * 0.04
-                and alternative_predicted_distance <= primary_predicted_distance + frame.shape[1] * 0.02
-            ):
-                return alternative
-            if (
-                primary_meta.get('fallback_ball')
-                and primary_motion < 0.035
-                and alternative.meta.get('estimated_ball')
-                and alternative_distance <= primary_distance + 18.0
-            ):
-                return alternative
-            if (
-                primary_meta.get('fallback_ball')
-                and primary_quality < 1.2
-                and alternative.meta.get('estimated_ball')
-                and alternative_predicted_distance <= primary_predicted_distance + frame.shape[1] * 0.06
-            ):
-                return alternative
-            if (
-                primary_meta.get('fallback_ball')
-                and alternative.meta.get('estimated_ball')
-                and self._last_ball_owner_track_id is not None
-                and alternative.meta.get('estimated_from_player') == self._last_ball_owner_track_id
-                and primary_distance > frame.shape[1] * 0.07
-                and alternative_distance <= primary_distance + 12.0
-            ):
-                return alternative
-        return primary
+            if candidate_key in seen:
+                continue
+            seen.add(candidate_key)
+
+            score = self._ball_candidate_score(frame, players, candidate)
+            if score > best_score:
+                best_score = score
+                best_candidate = candidate
+
+        if best_candidate is None or best_score < 0.45:
+            return None
+
+        best_meta = dict(best_candidate.meta or {})
+        best_meta['selection_score'] = round(best_score, 3)
+        best_candidate.meta = best_meta
+        return best_candidate
 
     def _decay_tracks(self, seen_ids: set[str]) -> None:
         kept: list[TrackState] = []
