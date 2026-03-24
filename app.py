@@ -14,6 +14,11 @@ from basketball_analyzer.video_sources import download_video_url
 
 st.set_page_config(page_title='Basketball Match Analyzer', layout='wide')
 
+DEFAULT_DEMO_URL = 'https://youtube.com/clip/UgkxKugBQoEq_ZSwC5BWPceIG1gu0HSiaxQB?si=76QMLAn41-b89zJn'
+DEFAULT_DEMO_MODE = 'WNBA Video URL'
+DEFAULT_DEMO_PROFILE = 'Standard Clip'
+DEFAULT_DEMO_BACKEND = 'yolo_detect'
+
 
 @st.cache_resource(max_entries=1)
 def _get_pipeline(version: int = 8) -> BasketballAnalysisPipeline:
@@ -315,7 +320,16 @@ def _run_pipeline(
     return pipeline.run(temp_path, render_output_path=render_path, tracking_backend=tracking_backend), temp_path
 
 
+def _init_demo_state() -> None:
+    st.session_state.setdefault('source_mode', DEFAULT_DEMO_MODE)
+    st.session_state.setdefault('video_url_input', DEFAULT_DEMO_URL)
+    st.session_state.setdefault('analysis_profile_input', DEFAULT_DEMO_PROFILE)
+    st.session_state.setdefault('tracking_backend_input', DEFAULT_DEMO_BACKEND)
+    st.session_state.setdefault('auto_demo_pending', True)
+
+
 _inject_styles()
+_init_demo_state()
 st.markdown(
     """
     <section class="demo-hero">
@@ -333,16 +347,25 @@ st.markdown(
 with st.sidebar:
     st.header('Demo Controls')
     st.caption('For the smoothest walkthrough, start with Demo Sequence. Use a short real clip only when you want to show the current prototype pipeline and where it is heading.')
-    mode = st.radio('Choose source', ['Demo Sequence', 'Tracked JSON Upload', 'Raw MP4 Upload', 'WNBA Video URL'])
+    mode = st.radio(
+        'Choose source',
+        ['Demo Sequence', 'Tracked JSON Upload', 'Raw MP4 Upload', 'WNBA Video URL'],
+        key='source_mode',
+    )
     upload = None
     video_url = None
-    analysis_profile = 'Standard Clip'
-    tracking_backend = 'yolo_detect'
+    analysis_profile = st.session_state.get('analysis_profile_input', DEFAULT_DEMO_PROFILE)
+    tracking_backend = st.session_state.get('tracking_backend_input', DEFAULT_DEMO_BACKEND)
     if mode == 'Tracked JSON Upload':
         upload = st.file_uploader('Upload tracking JSON', type=['json'])
     elif mode == 'Raw MP4 Upload':
         upload = st.file_uploader('Upload MP4', type=['mp4'])
-        analysis_profile = st.selectbox('Analysis quality', ['Fast Preview', 'Standard Clip', 'Full Clip'], index=1)
+        analysis_profile = st.selectbox(
+            'Analysis quality',
+            ['Fast Preview', 'Standard Clip', 'Full Clip'],
+            index=['Fast Preview', 'Standard Clip', 'Full Clip'].index(st.session_state.get('analysis_profile_input', DEFAULT_DEMO_PROFILE)),
+            key='analysis_profile_input',
+        )
         tracking_backend = st.selectbox(
             'Tracking backend',
             [
@@ -352,13 +375,29 @@ with st.sidebar:
                 ('YOLO + BoT-SORT (experimental)', 'yolo_botsort'),
                 ('YOLO + ByteTrack (experimental)', 'yolo_bytetrack'),
             ],
-            index=2,
+            index=[item[1] for item in [
+                ('Auto', 'auto'),
+                ('Prototype CV', 'prototype_cv'),
+                ('YOLO Detect', 'yolo_detect'),
+                ('YOLO + BoT-SORT (experimental)', 'yolo_botsort'),
+                ('YOLO + ByteTrack (experimental)', 'yolo_bytetrack'),
+            ]].index(st.session_state.get('tracking_backend_input', DEFAULT_DEMO_BACKEND)),
             format_func=lambda item: item[0],
+            key='tracking_backend_input',
         )[1]
         st.caption('Recommended for demo: Standard Clip + YOLO Detect. It is the steadiest current real-video path.')
     elif mode == 'WNBA Video URL':
-        video_url = st.text_input('Paste WNBA video URL', placeholder='https://www.youtube.com/watch?v=...')
-        analysis_profile = st.selectbox('Analysis quality', ['Fast Preview', 'Standard Clip', 'Full Clip'], index=1)
+        video_url = st.text_input(
+            'Paste WNBA video URL',
+            placeholder='https://www.youtube.com/watch?v=...',
+            key='video_url_input',
+        )
+        analysis_profile = st.selectbox(
+            'Analysis quality',
+            ['Fast Preview', 'Standard Clip', 'Full Clip'],
+            index=['Fast Preview', 'Standard Clip', 'Full Clip'].index(st.session_state.get('analysis_profile_input', DEFAULT_DEMO_PROFILE)),
+            key='analysis_profile_input',
+        )
         tracking_backend = st.selectbox(
             'Tracking backend',
             [
@@ -368,15 +407,31 @@ with st.sidebar:
                 ('YOLO + BoT-SORT (experimental)', 'yolo_botsort'),
                 ('YOLO + ByteTrack (experimental)', 'yolo_bytetrack'),
             ],
-            index=2,
+            index=[item[1] for item in [
+                ('Auto', 'auto'),
+                ('Prototype CV', 'prototype_cv'),
+                ('YOLO Detect', 'yolo_detect'),
+                ('YOLO + BoT-SORT (experimental)', 'yolo_botsort'),
+                ('YOLO + ByteTrack (experimental)', 'yolo_bytetrack'),
+            ]].index(st.session_state.get('tracking_backend_input', DEFAULT_DEMO_BACKEND)),
             format_func=lambda item: item[0],
+            key='tracking_backend_input',
         )[1]
         st.caption('Use a short highlight or possession clip so the demo stays responsive.')
 
     run_clicked = st.button('Run Analysis', type='primary', width='stretch')
     st.caption('Standard Clip is the best balance for a live demo. Keep the controls simple unless someone specifically asks about the pipeline.')
 
-if run_clicked:
+auto_run = (
+    st.session_state.get('auto_demo_pending', False)
+    and mode == DEFAULT_DEMO_MODE
+    and st.session_state.get('video_url_input') == DEFAULT_DEMO_URL
+)
+if auto_run:
+    st.session_state.auto_demo_pending = False
+run_requested = run_clicked or auto_run
+
+if run_requested:
     try:
         result, source_ref = _run_pipeline(mode, upload, video_url, analysis_profile, tracking_backend)
         event_counts = _event_breakdown(result.events)
@@ -384,6 +439,8 @@ if run_clicked:
         ball_ratio = (ball_frames / len(result.frames)) if result.frames else 0.0
         source_label = mode if mode != 'WNBA Video URL' else 'WNBA URL'
 
+        if auto_run:
+            st.info('Loaded the default demo clip automatically. You can switch sources or paste a different URL anytime.')
         st.success(f'Analysis complete from: {source_ref}')
         st.markdown('<div class="section-label">Run Summary</div>', unsafe_allow_html=True)
         top_metrics = st.columns(4)
