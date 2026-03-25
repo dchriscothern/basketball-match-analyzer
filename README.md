@@ -1,5 +1,9 @@
 # Basketball Match Analyzer
 
+A live basketball match analysis tool built in Streamlit that processes game footage and tracking outputs to surface tactical and performance insights in real time. Designed for coaches and sport scientists, the platform covers player load distribution, possession efficiency, event detection, team pattern recognition, rendered analysis overlays, and demo-ready reporting. The dedicated ball-tracker path is still in active development, but the core analytics workflow, reporting layer, and interactive demo experience are already in a strong prototype state.
+
+**Skills demonstrated:** Python, Streamlit, sports analytics, computer vision pipeline design, match data processing, coaching workflow design, and live demo deployment.
+
 A basketball-specific multi-agent video analysis repo inspired by multi-agent football analysis workflows, but redesigned for possessions, passes, turnovers, steals, shots, rebounds, automated game summaries, and rendered analysis overlays.
 
 ## System Pipeline
