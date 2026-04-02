@@ -12,7 +12,7 @@ from basketball_analyzer.pipeline import BasketballAnalysisPipeline
 from basketball_analyzer.video_sources import download_video_url
 
 
-st.set_page_config(page_title='Basketball Match Analyzer', layout='wide')
+st.set_page_config(page_title='Basketball Video Intelligence', layout='wide')
 
 DEFAULT_DEMO_URL = 'https://youtube.com/clip/UgkxKugBQoEq_ZSwC5BWPceIG1gu0HSiaxQB?si=76QMLAn41-b89zJn'
 DEFAULT_DEMO_MODE = 'WNBA Video URL'
@@ -334,7 +334,7 @@ st.markdown(
     """
     <section class="demo-hero">
         <div class="demo-kicker">Basketball Video Intelligence Demo</div>
-        <h1>Basketball Match Analyzer</h1>
+        <h1>Basketball Video Intelligence</h1>
         <p class="demo-lead">
             This demo turns basketball footage into possessions, events, team context, and a replay-ready court view. The goal is to show why automated game understanding matters,
             what is already useful today, and what the next iterations can unlock for coaching, scouting, and operations.
@@ -461,7 +461,7 @@ if run_requested:
         if result.calibration_note:
             st.caption(result.calibration_note)
 
-        st.markdown('<div class="section-label">Rendered Analysis</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-label">Replay View</div>', unsafe_allow_html=True)
         if result.rendered_media_path and Path(result.rendered_media_path).exists():
             media_path = Path(result.rendered_media_path)
             preview_path = Path(result.rendered_preview_path) if result.rendered_preview_path else media_path
@@ -481,8 +481,8 @@ if run_requested:
         else:
             st.info('Rendered animation was not available for this run.')
 
-        overview_tab, events_tab, players_tab, teams_tab = st.tabs(['Overview', 'Events', 'Player Stats', 'Team Stats'])
-        with overview_tab:
+        summary_tab, events_tab, players_tab, teams_tab = st.tabs(['Coach Summary', 'Event Timeline', 'Player Insights', 'Team Insights'])
+        with summary_tab:
             _render_story_cards()
             st.markdown('<div class="section-label">Automated Report</div>', unsafe_allow_html=True)
             st.write(result.report_text)
