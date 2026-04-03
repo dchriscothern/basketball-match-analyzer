@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import base64
 import json
+import sys
 import tempfile
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT / 'src'
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
 import streamlit as st
 
@@ -532,3 +538,4 @@ if run_requested:
         st.error(f'Analysis failed: {exc}')
 else:
     _render_default_state()
+

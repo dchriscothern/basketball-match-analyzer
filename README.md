@@ -42,11 +42,19 @@ This now writes a rendered artifact alongside the JSON outputs and report. Today
 cd C:\GitHub\basketball-match-analyzer
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .
-streamlit run dashboard.py --server.port 8513
+python -m streamlit run dashboard.py --server.port 8513
 ```
 
 `dashboard.py` is the standard Streamlit entrypoint for this repo. The older
 `app.py` module is still present and backs the same UI.
+
+If Windows launches a different global Python by accident, `dashboard.py` will
+try to relaunch itself through the project `.venv` automatically. If that
+handoff fails, run Streamlit explicitly through the project interpreter:
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run dashboard.py --server.port 8513
+```
 
 ## Branch Convention
 
