@@ -117,6 +117,51 @@ For uploaded MP4s, the app now attempts a sampled source-video overlay export if
 
 This is still an MVP renderer, not a production broadcast-analysis stack. The next renderer milestone is a more robust, frame-accurate overlay on top of stronger tracking outputs.
 
+## Future Phases
+
+The best near-term path for this product is not to chase every advanced AI
+metric at once. For budget-conscious programs such as many NCAA Division II
+schools, the first priority should be coach-trusted workflow value at a
+reasonable cost, then deeper analytics after the data layer is stable.
+
+### Phase 1: D2 Essentials
+
+Focus on the metrics and outputs most likely to matter immediately to coaches,
+coordinators, and operations staff:
+
+- possession flow and control
+- pass / turnover / steal / shot / rebound timeline
+- team and player context
+- replay-ready clip rendering
+- coach summary and postgame exports
+- shareable game or player analysis pages
+
+### Phase 2: Decision Support
+
+Once the tracking layer is stable enough for consistent review value:
+
+- shot maps and zone summaries
+- transition offense / defense patterns
+- lineup and unit-level summaries
+- turnover source breakdowns
+- simple shot quality heuristics
+- multi-game trend views and report history
+
+### Phase 3: Advanced AI Insights
+
+These are interesting, but they should come later because they require better
+tracking accuracy and usually a weaker cost/benefit profile for smaller-budget
+programs:
+
+- off-ball gravity / defensive attention
+- reaction latency and closeout timing
+- second-effort and burst-volume indicators
+- spatial synchronization / shell-defense metrics
+- richer expected shot quality models
+
+These advanced metrics are best treated as future upgrades or premium
+capabilities, not as the core D2 value proposition.
+
 ## What Still Needs Real Model Integrations
 
 - robust player / ball detection from raw MP4

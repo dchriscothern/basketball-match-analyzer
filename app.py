@@ -276,6 +276,26 @@ def _render_story_cards() -> None:
         """,
         unsafe_allow_html=True,
     )
+    st.markdown('<div class="section-label">Future Phases</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="demo-card-grid">
+            <div class="demo-card">
+                <h4>Phase 1: D2 Essentials</h4>
+                <p>Prioritize the lowest-cost, highest-trust outputs: possessions, event timeline, team context, replay, clip exports, and coach-ready summaries.</p>
+            </div>
+            <div class="demo-card">
+                <h4>Phase 2: Decision Support</h4>
+                <p>Add lineup views, shot maps, simple shot quality, transition and turnover patterns, plus shareable game and player reports.</p>
+            </div>
+            <div class="demo-card">
+                <h4>Phase 3: Advanced AI Insights</h4>
+                <p>Explore gravity, reaction speed, defensive synchronization, and other higher-cost metrics once the tracking layer is strong enough to support them.</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _event_breakdown(events) -> dict[str, int]:
